@@ -1,0 +1,176 @@
+'use client'
+
+import { useEffect, useRef, useCallback, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import useSWRInfinite from 'swr/infinite'
+import { motion, AnimatePresence } from 'framer-motion'
+import { fetchNews, NewsResponse, NewsItem } from '@/lib/api'
+import { NewsCard } from './NewsCard'
+import { NewsModal } from './NewsModal'
+import { SkeletonCard } from './SkeletonCard'
+
+interface NewsGridProps {
+  initialData: NewsResponse
+  source?: string
+}
+
+const PAGE_SIZE = 20
+
+function getKey(
+  pageIndex: number,
+  previousPageData: NewsResponse | null,
+  source: string
+) {
+  // Stop fetching if last page is reached
+  if (previousPageData && pageIndex >= previousPageData.totalPages) return null
+
+  return `news-${source}-${pageIndex}`
+}
+
+export function NewsGrid({ initialData, source }: NewsGridProps) {
+  const searchParams = useSearchParams()
+  const currentSource = searchParams.get('source') || 'all'
+  const loaderRef = useRef<HTMLDivElement>(null)
+  const [selectedItem, setSelectedItem] = useState<NewsItem | null>(null)
+
+  const { data, size, setSize, isLoading, isValidating } = useSWRInfinite(
+    (pageIndex, previousPageData) =>
+      getKey(pageIndex, previousPageData as NewsResponse | null, currentSource),
+    async (key) => {
+      const pageIndex = parseInt(key.split('-').pop() || '0', 10)
+      const sourceParam = currentSource === 'all' ? undefined : currentSource
+      return fetchNews(sourceParam, pageIndex, PAGE_SIZE)
+    },
+    {
+      fallbackData: [initialData],
+      revalidateFirstPage: false,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      dedupingInterval: 60000,
+    }
+  )
+
+  const allItems = data ? data.flatMap((page) => page.content) : []
+  const lastPage = data?.[data.length - 1]
+  const hasMore = lastPage ? size < lastPage.totalPages : false
+  const isEmpty = allItems.length === 0 && !isLoading
+
+  // Intersection Observer for infinite scroll
+  const handleObserver = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      const target = entries[0]
+      if (target.isIntersecting && hasMore && !isValidating) {
+        setSize((prev) => prev + 1)
+      }
+    },
+    [hasMore, isValidating, setSize]
+  )
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(handleObserver, {
+      root: null,
+      rootMargin: '200px',
+      threshold: 0,
+    })
+    const el = loaderRef.current
+    if (el) observer.observe(el)
+    return () => {
+      if (el) observer.unobserve(el)
+    }
+  }, [handleObserver])
+
+  if (isEmpty) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col items-center justify-center py-32 text-center"
+      >
+        <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-[#1a1a1a] flex items-center justify-center mb-4">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            className="w-8 h-8 text-gray-400 dark:text-gray-600"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+            />
+          </svg>
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          뉴스가 없습니다
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          현재 이 소스에서 가져올 뉴스가 없습니다.
+          <br />
+          API 서버가 실행 중인지 확인해주세요.
+        </p>
+      </motion.div>
+    )
+  }
+
+  return (
+    <div>
+      <NewsModal item={selectedItem} onClose={() => setSelectedItem(null)} />
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentSource}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          {/* Results count */}
+          {lastPage && lastPage.totalElements > 0 && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              총{' '}
+              <span className="font-medium text-gray-900 dark:text-white">
+                {lastPage.totalElements.toLocaleString()}
+              </span>
+              개의 뉴스
+            </p>
+          )}
+
+          {/* News grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {allItems.map((item, index) => (
+              <NewsCard
+                key={`${item.id}-${item.source}`}
+                item={item}
+                index={index % PAGE_SIZE}
+                onClick={setSelectedItem}
+              />
+            ))}
+
+            {/* Loading skeletons */}
+            {(isLoading || isValidating) &&
+              Array.from({ length: 6 }).map((_, i) => (
+                <SkeletonCard key={`skeleton-${i}`} />
+              ))}
+          </div>
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Infinite scroll trigger */}
+      <div ref={loaderRef} className="h-10 mt-6" />
+
+      {/* End of feed */}
+      {!hasMore && allItems.length > 0 && !isValidating && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center py-8"
+        >
+          <p className="text-sm text-gray-400 dark:text-gray-600">
+            모든 뉴스를 불러왔습니다
+          </p>
+        </motion.div>
+      )}
+    </div>
+  )
+}

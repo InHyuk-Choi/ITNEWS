@@ -1,0 +1,40 @@
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/itnews}
+    username: ${DB_USERNAME:itnews}
+    password: ${DB_PASSWORD:itnews}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+    open-in-view: false
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=1800s
+
+server:
+  port: ${PORT:8080}
+
+app:
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+  naver:
+    client-id: ${NAVER_CLIENT_ID:}
+    client-secret: ${NAVER_CLIENT_SECRET:}
+  cors:
+    allowed-origin: ${ALLOWED_ORIGIN:http://localhost:3000}
+  crawler:
+    articles-per-source: 8
+
+scheduling:
+  enabled: ${SCHEDULING_ENABLED:true}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

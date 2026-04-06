@@ -1,0 +1,62 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.0'
+	id 'io.spring.dependency-management' version '1.1.6'
+}
+
+group = 'com.itnews'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(25)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-cache'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	runtimeOnly 'org.postgresql:postgresql'
+
+	// RSS parser
+	implementation 'com.rometools:rome:2.1.0'
+	// HTML parsing
+	implementation 'org.jsoup:jsoup:1.17.2'
+	// Caffeine cache
+	implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+	// Rate limiting
+	implementation 'com.bucket4j:bucket4j-core:8.10.1'
+	// HTTP client for Gemini API
+	implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+	// JSON
+	implementation 'com.fasterxml.jackson.core:jackson-databind'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// TestContainers – Docker가 실행 중이어야 합니다
+	testImplementation 'org.testcontainers:postgresql:1.19.8'
+	testImplementation 'org.testcontainers:junit-jupiter:1.19.8'
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+
+	// MockMvc + Security test support
+	testImplementation 'org.springframework.security:spring-security-test'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
