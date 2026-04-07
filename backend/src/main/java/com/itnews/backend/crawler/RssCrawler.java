@@ -17,14 +17,20 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Crawls multiple RSS/Atom feeds using the Rome library.
@@ -94,7 +100,7 @@ public class RssCrawler implements Crawler {
             if (!response.isSuccessful() || response.body() == null) {
                 throw new RuntimeException("HTTP " + response.code());
             }
-            bytes = response.body().bytes();
+            bytes = normalizeXmlDates(response.body().bytes());
         }
 
         try (XmlReader reader = new XmlReader(new ByteArrayInputStream(bytes))) {
@@ -113,6 +119,39 @@ public class RssCrawler implements Crawler {
             }
         }
         return articles;
+    }
+
+    /**
+     * `<pubDate>2026-04-07 18:38:02</pubDate>` 같은 비표준 날짜를
+     * RFC 822 표준으로 변환해서 Rome이 파싱할 수 있게 함.
+     * 타임존 없으면 KST(+09:00) 가정.
+     */
+    private static final Pattern NON_STANDARD_DATE =
+            Pattern.compile("<pubDate>(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2})</pubDate>");
+    private static final DateTimeFormatter INPUT_FMT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter RFC822_FMT =
+            DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss Z", java.util.Locale.ENGLISH);
+
+    private byte[] normalizeXmlDates(byte[] bytes) {
+        try {
+            String xml = new String(bytes, StandardCharsets.UTF_8);
+            Matcher m = NON_STANDARD_DATE.matcher(xml);
+            if (!m.find()) return bytes; // 표준 형식이면 그대로
+            StringBuffer sb = new StringBuffer();
+            m.reset();
+            while (m.find()) {
+                LocalDateTime ldt = LocalDateTime.parse(m.group(1), INPUT_FMT);
+                String rfc = ldt.atZone(ZoneId.of("Asia/Seoul"))
+                        .format(RFC822_FMT);
+                m.appendReplacement(sb, "<pubDate>" + rfc + "</pubDate>");
+            }
+            m.appendTail(sb);
+            return sb.toString().getBytes(StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            log.debug("Date normalization failed, using raw bytes: {}", e.getMessage());
+            return bytes;
+        }
     }
 
     private NewsEntity toEntity(SyndEntry entry, String source) {

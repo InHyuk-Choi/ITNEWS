@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { memo } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { motion } from 'framer-motion'
@@ -13,7 +14,7 @@ interface NewsCardProps {
   onClick: (item: NewsItem) => void
 }
 
-export function NewsCard({ item, index, onClick }: NewsCardProps) {
+export const NewsCard = memo(function NewsCard({ item, index, onClick }: NewsCardProps) {
   const sourceMeta = getSourceMeta(item.source)
 
   const timeAgo = (() => {
@@ -119,4 +120,4 @@ export function NewsCard({ item, index, onClick }: NewsCardProps) {
       </button>
     </motion.article>
   )
-}
+})

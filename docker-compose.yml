@@ -26,6 +26,7 @@ services:
       DB_USERNAME: itnews
       DB_PASSWORD: itnews
       ALLOWED_ORIGIN: http://localhost:3000
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       NAVER_CLIENT_ID: ${NAVER_CLIENT_ID:-}
       NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET:-}
@@ -39,6 +40,7 @@ services:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8080
+      API_URL: http://backend:8080
     depends_on:
       - backend
 
