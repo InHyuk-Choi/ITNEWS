@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/itnews}
-    username: ${DB_USERNAME:itnews}
-    password: ${DB_PASSWORD:itnews}
+    url: jdbc:postgresql://${PGHOST:localhost}:${PGPORT:5432}/${PGDATABASE:itnews}
+    username: ${PGUSER:itnews}
+    password: ${PGPASSWORD:itnews}
   jpa:
     hibernate:
       ddl-auto: update
