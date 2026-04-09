@@ -24,7 +24,7 @@ public class GeminiSummaryService {
     private static final Logger log = LoggerFactory.getLogger(GeminiSummaryService.class);
 
     private static final String GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-    private static final String MODEL = "llama-3.3-70b-versatile";
+    private static final String MODEL = "llama-3.1-8b-instant"; // 무료 TPM 20,000 (70b는 6,000)
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
     // Groq 무료: 30 RPM → 2초 간격으로 여유롭게
@@ -57,7 +57,7 @@ public class GeminiSummaryService {
                     .filter(t -> t.length() > 30)
                     .collect(Collectors.joining("\n"));
             if (text.isBlank()) return null;
-            return text.length() > 3000 ? text.substring(0, 3000) : text;
+            return text.length() > 1500 ? text.substring(0, 1500) : text;
         } catch (Exception e) {
             log.debug("Content fetch failed for {}: {}", url, e.getMessage());
             return null;
@@ -86,15 +86,25 @@ public class GeminiSummaryService {
                         .post(RequestBody.create(body, JSON))
                         .build();
 
-                try (Response response = httpClient.newCall(request).execute()) {
-                    if (!response.isSuccessful()) {
-                        log.warn("Groq API HTTP {}: {}", response.code(), response.message());
-                        return null;
+                for (int attempt = 0; attempt < 3; attempt++) {
+                    try (Response response = httpClient.newCall(request).execute()) {
+                        if (response.code() == 429) {
+                            long wait = (long) Math.pow(2, attempt) * 30_000L; // 30s, 60s, 120s
+                            log.warn("Groq 429 rate limit, waiting {}s (attempt {})", wait / 1000, attempt + 1);
+                            Thread.sleep(wait);
+                            continue;
+                        }
+                        if (!response.isSuccessful()) {
+                            log.warn("Groq API HTTP {}: {}", response.code(), response.message());
+                            return null;
+                        }
+                        ResponseBody rb = response.body();
+                        if (rb == null) return null;
+                        return parseResponse(rb.string());
                     }
-                    ResponseBody rb = response.body();
-                    if (rb == null) return null;
-                    return parseResponse(rb.string());
                 }
+                log.warn("Groq API failed after 3 attempts (rate limit)");
+                return null;
             } finally {
                 Thread.sleep(2100); // 30 RPM 여유
                 semaphore.release();
