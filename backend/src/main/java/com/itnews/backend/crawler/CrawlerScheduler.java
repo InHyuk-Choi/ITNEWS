@@ -39,6 +39,13 @@ public class CrawlerScheduler {
         this.crawlerExecutor = Executors.newVirtualThreadPerTaskExecutor();
     }
 
+    /** 매 시간 :30분에 요약 없는 기사 최대 10개 재시도 */
+    @Scheduled(cron = "0 30 * * * *")
+    public void retrySummarization() {
+        log.info("Retrying summarization for unsummarized articles");
+        newsService.retrySummarization(10);
+    }
+
     /**
      * Runs at the top of every hour.
      * All crawlers execute in parallel; the method waits for all to finish before returning.

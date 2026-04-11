@@ -28,6 +28,7 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -44,6 +45,16 @@ public class RssCrawler implements Crawler {
 
     /** Map of source name → RSS feed URL */
     private static final Map<String, String> FEEDS = new LinkedHashMap<>();
+
+    /** 전자신문은 IT 외 기사도 포함되므로 키워드 필터 적용 */
+    private static final Set<String> ETNEWS_IT_KEYWORDS = Set.of(
+        "AI", "IT", "SW", "5G", "GPU", "CPU",
+        "인공지능", "소프트웨어", "반도체", "디지털", "클라우드", "데이터",
+        "스타트업", "모바일", "스마트폰", "앱", "플랫폼", "로봇", "자율주행",
+        "보안", "사이버", "통신", "디스플레이", "칩", "테크", "빅데이터",
+        "블록체인", "드론", "메타버스", "개발자", "전자", "네트워크", "스마트",
+        "tech", "software", "startup", "security", "chip", "cloud"
+    );
 
     static {
         FEEDS.put("techcrunch",  "https://techcrunch.com/feed/");
@@ -112,13 +123,22 @@ public class RssCrawler implements Crawler {
                 SyndEntry entry = entries.get(i);
                 try {
                     NewsEntity article = toEntity(entry, source);
-                    if (article != null) articles.add(article);
+                    if (article != null && isItRelated(article.getTitle(), source)) {
+                        articles.add(article);
+                    }
                 } catch (Exception e) {
                     log.warn("[RSS][{}] Skipping entry: {}", source, e.getMessage());
                 }
             }
         }
         return articles;
+    }
+
+    /** 전자신문 기사가 IT 관련인지 키워드로 확인 */
+    private boolean isItRelated(String title, String source) {
+        if (!"etnews".equals(source)) return true;
+        String lower = title.toLowerCase();
+        return ETNEWS_IT_KEYWORDS.stream().anyMatch(kw -> lower.contains(kw.toLowerCase()));
     }
 
     /**

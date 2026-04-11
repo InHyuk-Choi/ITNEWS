@@ -106,7 +106,7 @@ public class GeminiSummaryService {
                 log.warn("Groq API failed after 3 attempts (rate limit)");
                 return null;
             } finally {
-                Thread.sleep(2100); // 30 RPM 여유
+                Thread.sleep(5000); // 20 RPM → TPM 여유
                 semaphore.release();
             }
         } catch (Exception e) {

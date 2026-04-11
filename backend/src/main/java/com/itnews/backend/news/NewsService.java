@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Service
 public class NewsService {
@@ -58,6 +59,22 @@ public class NewsService {
         } catch (Exception e) {
             log.error("Failed to save article [{}]: {}", news.getUrl(), e.getMessage());
             return false;
+        }
+    }
+
+    /** 요약 없는 기사 최대 limit개 재시도 */
+    @CacheEvict(value = "news", allEntries = true)
+    @Transactional
+    public void retrySummarization(int limit) {
+        List<NewsEntity> unsummarized = newsRepository.findUnsummarized(
+                org.springframework.data.domain.PageRequest.of(0, limit));
+        for (NewsEntity news : unsummarized) {
+            String summary = geminiSummaryService.summarize(news.getTitle(), news.getUrl());
+            if (summary != null) {
+                news.setSummary(summary);
+                newsRepository.save(news);
+                log.info("Retry summary OK: {}", news.getTitle());
+            }
         }
     }
 

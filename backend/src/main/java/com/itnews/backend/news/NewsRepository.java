@@ -9,6 +9,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 import java.time.OffsetDateTime;
 
 @Repository
@@ -19,6 +21,9 @@ public interface NewsRepository extends JpaRepository<NewsEntity, Long> {
     Page<NewsEntity> findBySourceOrderByPublishedAtDesc(String source, Pageable pageable);
 
     boolean existsByUrl(String url);
+
+    @Query("SELECT n FROM NewsEntity n WHERE n.summary IS NULL ORDER BY n.publishedAt DESC")
+    List<NewsEntity> findUnsummarized(Pageable pageable);
 
     /**
      * Insert a news record, silently ignoring duplicate URLs via ON CONFLICT DO NOTHING.
