@@ -20,6 +20,22 @@ export interface NewsResponse {
   totalElements: number
 }
 
+export async function searchNews(
+  q: string,
+  page = 0,
+  size = 20
+): Promise<NewsResponse> {
+  const params = new URLSearchParams({ q, page: String(page), size: String(size) })
+  try {
+    const res = await fetch(`${API_URL}/api/news/search?${params.toString()}`)
+    if (!res.ok) throw new Error(`API error: ${res.status}`)
+    return res.json()
+  } catch (error) {
+    console.error('Search failed:', error)
+    return { content: [], totalPages: 0, currentPage: 0, totalElements: 0 }
+  }
+}
+
 export async function fetchNews(
   source?: string,
   page = 0,

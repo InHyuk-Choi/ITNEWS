@@ -1,12 +1,13 @@
 import { ThemeToggle } from './ThemeToggle'
+import { SearchBar } from './SearchBar'
 
 export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-200 dark:border-[#2a2a2a] bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md">
       <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 shrink-0">
             <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 shadow-lg shadow-orange-500/30">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -32,8 +33,13 @@ export function Header() {
             </div>
           </div>
 
+          {/* Search */}
+          <div className="flex-1 flex justify-center">
+            <SearchBar />
+          </div>
+
           {/* Right side */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />
               Live

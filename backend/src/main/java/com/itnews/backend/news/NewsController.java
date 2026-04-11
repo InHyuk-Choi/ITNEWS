@@ -38,6 +38,17 @@ public class NewsController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/api/news/search")
+    public ResponseEntity<NewsPageResponse> searchNews(
+            @RequestParam String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        if (q == null || q.isBlank()) return ResponseEntity.badRequest().build();
+        if (size < 1 || size > 100) size = 20;
+        return ResponseEntity.ok(newsService.searchNews(q.trim(), page, size));
+    }
+
     /**
      * POST /api/admin/crawl
      * Manually triggers a full crawl cycle. Intended for local testing only.

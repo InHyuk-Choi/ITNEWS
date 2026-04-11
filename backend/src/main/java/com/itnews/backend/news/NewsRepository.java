@@ -25,6 +25,12 @@ public interface NewsRepository extends JpaRepository<NewsEntity, Long> {
     @Query("SELECT n FROM NewsEntity n WHERE n.summary IS NULL ORDER BY n.publishedAt DESC")
     List<NewsEntity> findUnsummarized(Pageable pageable);
 
+    @Query("SELECT n FROM NewsEntity n WHERE " +
+           "LOWER(n.title) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "LOWER(n.summary) LIKE LOWER(CONCAT('%', :q, '%')) " +
+           "ORDER BY n.publishedAt DESC")
+    Page<NewsEntity> searchByTitleOrSummary(@Param("q") String q, Pageable pageable);
+
     /**
      * Insert a news record, silently ignoring duplicate URLs via ON CONFLICT DO NOTHING.
      * Returns the number of rows inserted (0 if duplicate, 1 if new).

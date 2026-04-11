@@ -62,6 +62,19 @@ public class NewsService {
         }
     }
 
+    @Cacheable(value = "news", key = "'search_' + #q + '_' + #page + '_' + #size")
+    @Transactional(readOnly = true)
+    public NewsPageResponse searchNews(String q, int page, int size) {
+        Page<NewsEntity> result = newsRepository.searchByTitleOrSummary(
+                q, PageRequest.of(page, size));
+        return new NewsPageResponse(
+                result.getContent().stream().map(NewsDto::from).toList(),
+                result.getTotalPages(),
+                result.getNumber(),
+                result.getTotalElements()
+        );
+    }
+
     /** 요약 없는 기사 최대 limit개 재시도 */
     @CacheEvict(value = "news", allEntries = true)
     @Transactional
