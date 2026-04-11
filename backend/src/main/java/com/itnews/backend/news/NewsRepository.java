@@ -25,10 +25,17 @@ public interface NewsRepository extends JpaRepository<NewsEntity, Long> {
     @Query("SELECT n FROM NewsEntity n WHERE n.summary IS NULL ORDER BY n.publishedAt DESC")
     List<NewsEntity> findUnsummarized(Pageable pageable);
 
-    @Query("SELECT n FROM NewsEntity n WHERE " +
-           "LOWER(n.title) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
-           "LOWER(n.summary) LIKE LOWER(CONCAT('%', :q, '%')) " +
-           "ORDER BY n.publishedAt DESC")
+    @Query(value = """
+            SELECT * FROM news
+            WHERE
+              title ILIKE '%' || :q || '%'
+              OR summary ILIKE '%' || :q || '%'
+              OR similarity(title, :q) > 0.15
+              OR similarity(summary, :q) > 0.15
+            ORDER BY
+              GREATEST(similarity(title, :q), similarity(summary, :q)) DESC,
+              published_at DESC
+            """, nativeQuery = true)
     Page<NewsEntity> searchByTitleOrSummary(@Param("q") String q, Pageable pageable);
 
     /**
