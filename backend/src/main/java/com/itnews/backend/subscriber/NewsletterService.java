@@ -1,5 +1,6 @@
 package com.itnews.backend.subscriber;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itnews.backend.news.NewsEntity;
 import com.itnews.backend.news.NewsRepository;
@@ -14,8 +15,9 @@ import org.springframework.stereotype.Service;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Service
 public class NewsletterService {
@@ -30,17 +32,20 @@ public class NewsletterService {
     private final ObjectMapper objectMapper;
     private final OkHttpClient httpClient;
     private final String resendApiKey;
+    private final String groqApiKey;
     private final String frontendUrl;
 
     public NewsletterService(
             SubscriberRepository subscriberRepository,
             NewsRepository newsRepository,
             @Value("${app.resend.api-key:}") String resendApiKey,
+            @Value("${app.groq.api-key:}") String groqApiKey,
             @Value("${app.cors.allowed-origin:http://localhost:3000}") String frontendUrl
     ) {
         this.subscriberRepository = subscriberRepository;
         this.newsRepository = newsRepository;
         this.resendApiKey = resendApiKey;
+        this.groqApiKey = groqApiKey;
         this.frontendUrl = frontendUrl;
         this.objectMapper = new ObjectMapper();
         this.httpClient = new OkHttpClient.Builder()
@@ -63,17 +68,18 @@ public class NewsletterService {
             return;
         }
 
-        // 지난 7일 기사 중 요약 있는 것 10개
-        List<NewsEntity> articles = newsRepository.findTop10ForNewsletter(
+        // 지난 7일 기사 50개 가져와서 Groq이 중요도 선별
+        List<NewsEntity> candidates = newsRepository.findTop10ForNewsletter(
                 OffsetDateTime.now(ZoneOffset.UTC).minusDays(7),
-                PageRequest.of(0, 10)
+                PageRequest.of(0, 50)
         );
 
-        if (articles.isEmpty()) {
+        if (candidates.isEmpty()) {
             log.info("No articles for newsletter");
             return;
         }
 
+        List<NewsEntity> articles = selectImportantArticles(candidates);
         String html = buildHtml(articles);
         int sent = 0;
 
@@ -86,6 +92,72 @@ public class NewsletterService {
             }
         }
         log.info("Weekly newsletter sent to {}/{} subscribers", sent, subscribers.size());
+    }
+
+    /** Groq에게 기사 목록 주고 중요한 10개 ID 선택 */
+    private List<NewsEntity> selectImportantArticles(List<NewsEntity> candidates) {
+        if (groqApiKey == null || groqApiKey.isBlank() || candidates.size() <= 10) {
+            return candidates.stream().limit(10).collect(Collectors.toList());
+        }
+
+        try {
+            // 번호:제목 목록 생성
+            StringBuilder prompt = new StringBuilder(
+                "다음은 이번 주 IT 뉴스 기사 목록이야. 개발자와 IT 종사자에게 가장 중요하고 임팩트 있는 기사 10개의 번호를 골라줘.\n" +
+                "JSON 배열 형식으로만 답해줘. 예: [1, 5, 12, ...]\n\n"
+            );
+            Map<Integer, NewsEntity> indexMap = new LinkedHashMap<>();
+            int idx = 1;
+            for (NewsEntity a : candidates) {
+                prompt.append(idx).append(". [").append(a.getSource()).append("] ").append(a.getTitle()).append("\n");
+                indexMap.put(idx, a);
+                idx++;
+            }
+
+            String response = callGroq(prompt.toString());
+            if (response == null) return candidates.stream().limit(10).collect(Collectors.toList());
+
+            // JSON 배열 파싱
+            String json = response.replaceAll("(?s).*?(\\[.*?]).*", "$1");
+            JsonNode arr = objectMapper.readTree(json);
+            List<NewsEntity> selected = new ArrayList<>();
+            for (JsonNode node : arr) {
+                int i = node.asInt();
+                if (indexMap.containsKey(i)) selected.add(indexMap.get(i));
+                if (selected.size() == 10) break;
+            }
+            log.info("Groq selected {}/{} articles for newsletter", selected.size(), candidates.size());
+            return selected.isEmpty() ? candidates.stream().limit(10).collect(Collectors.toList()) : selected;
+
+        } catch (Exception e) {
+            log.warn("Groq article selection failed, using latest 10: {}", e.getMessage());
+            return candidates.stream().limit(10).collect(Collectors.toList());
+        }
+    }
+
+    private String callGroq(String userMessage) throws Exception {
+        var root = objectMapper.createObjectNode();
+        root.put("model", "llama-3.1-8b-instant");
+        root.put("max_tokens", 100);
+        root.put("temperature", 0.1);
+        var messages = objectMapper.createArrayNode();
+        var user = objectMapper.createObjectNode();
+        user.put("role", "user");
+        user.put("content", userMessage);
+        messages.add(user);
+        root.set("messages", messages);
+
+        Request request = new Request.Builder()
+                .url("https://api.groq.com/openai/v1/chat/completions")
+                .header("Authorization", "Bearer " + groqApiKey)
+                .post(RequestBody.create(objectMapper.writeValueAsString(root), JSON))
+                .build();
+
+        try (Response response = httpClient.newCall(request).execute()) {
+            if (!response.isSuccessful() || response.body() == null) return null;
+            JsonNode json = objectMapper.readTree(response.body().string());
+            return json.path("choices").path(0).path("message").path("content").asText();
+        }
     }
 
     private void sendEmail(String to, String html, String unsubscribeToken) throws Exception {
@@ -116,12 +188,11 @@ public class NewsletterService {
         String date = DATE_FMT.format(java.time.Instant.now());
         StringBuilder sb = new StringBuilder();
         sb.append("<div style='font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;'>")
-          .append("<h1 style='font-size:22px;font-weight:bold;margin-bottom:4px;'>IT 이번 주 뉴스</h1>")
+          .append("<h1 style='font-size:22px;font-weight:bold;margin-bottom:4px;'>📰 이번 주 IT 뉴스</h1>")
           .append("<p style='color:#888;font-size:14px;margin-bottom:32px;'>")
           .append(date).append(" 기준 주요 뉴스</p>");
 
-        for (int i = 0; i < articles.size(); i++) {
-            NewsEntity a = articles.get(i);
+        for (NewsEntity a : articles) {
             sb.append("<div style='margin-bottom:28px;padding-bottom:28px;border-bottom:1px solid #eee;'>")
               .append("<p style='color:#888;font-size:12px;margin:0 0 6px;'>")
               .append(a.getSource().toUpperCase()).append("</p>")
