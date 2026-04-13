@@ -1,6 +1,7 @@
 package com.itnews.backend.news;
 
 import com.itnews.backend.crawler.CrawlerScheduler;
+import com.itnews.backend.subscriber.NewsletterService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -13,10 +14,12 @@ public class NewsController {
 
     private final NewsService newsService;
     private final CrawlerScheduler crawlerScheduler;
+    private final NewsletterService newsletterService;
 
-    public NewsController(NewsService newsService, CrawlerScheduler crawlerScheduler) {
+    public NewsController(NewsService newsService, CrawlerScheduler crawlerScheduler, NewsletterService newsletterService) {
         this.newsService = newsService;
         this.crawlerScheduler = crawlerScheduler;
+        this.newsletterService = newsletterService;
     }
 
     /**
@@ -59,5 +62,12 @@ public class NewsController {
         log.info("Manual crawl triggered via admin endpoint");
         crawlerScheduler.crawlAll();
         return ResponseEntity.ok("Crawl triggered successfully");
+    }
+
+    @PostMapping("/api/admin/newsletter")
+    public ResponseEntity<String> triggerNewsletter() {
+        log.info("Manual newsletter triggered via admin endpoint");
+        newsletterService.sendWeeklyNewsletter();
+        return ResponseEntity.ok("Newsletter triggered successfully");
     }
 }
