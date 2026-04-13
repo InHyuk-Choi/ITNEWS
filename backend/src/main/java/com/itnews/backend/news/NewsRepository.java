@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 import java.time.OffsetDateTime;
@@ -24,6 +25,9 @@ public interface NewsRepository extends JpaRepository<NewsEntity, Long> {
 
     @Query("SELECT n FROM NewsEntity n WHERE n.summary IS NULL ORDER BY n.publishedAt DESC")
     List<NewsEntity> findUnsummarized(Pageable pageable);
+
+    @Query("SELECT n FROM NewsEntity n WHERE n.summary IS NOT NULL AND n.publishedAt >= :since ORDER BY n.publishedAt DESC")
+    List<NewsEntity> findTop10ForNewsletter(@Param("since") OffsetDateTime since, Pageable pageable);
 
     @Query(value = "SELECT * FROM news WHERE title ILIKE '%' || :q || '%' OR summary ILIKE '%' || :q || '%' ORDER BY published_at DESC",
            countQuery = "SELECT COUNT(*) FROM news WHERE title ILIKE '%' || :q || '%' OR summary ILIKE '%' || :q || '%'",
