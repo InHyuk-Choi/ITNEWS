@@ -24,6 +24,8 @@ app:
     api-key: ${GROQ_API_KEY:}
   resend:
     api-key: ${RESEND_API_KEY:}
+  admin:
+    secret: ${ADMIN_SECRET:}
   gemini:
     api-key: ${GEMINI_API_KEY:}
   naver:

@@ -32,13 +32,16 @@ import java.util.List;
 public class SecurityConfig {
 
     private final String allowedOrigin;
+    private final String adminSecret;
     private final RateLimitFilter rateLimitFilter;
 
     public SecurityConfig(
             @Value("${app.cors.allowed-origin:http://localhost:3000}") String allowedOrigin,
+            @Value("${app.admin.secret:}") String adminSecret,
             RateLimitFilter rateLimitFilter
     ) {
         this.allowedOrigin = allowedOrigin;
+        this.adminSecret = adminSecret;
         this.rateLimitFilter = rateLimitFilter;
     }
 
@@ -60,12 +63,16 @@ public class SecurityConfig {
 
             // Authorization rules
             .authorizeHttpRequests(auth -> auth
-                // Admin endpoints: only accessible from localhost
+                // Admin endpoints: localhost 또는 X-Admin-Secret 헤더
                 .requestMatchers("/api/admin/**").access(
                     (authentication, context) -> {
                         HttpServletRequest req = context.getRequest();
                         boolean isLocalhost = isLocalhostRequest(req);
-                        return new org.springframework.security.authorization.AuthorizationDecision(isLocalhost);
+                        String secret = req.getHeader("X-Admin-Secret");
+                        boolean hasSecret = adminSecret != null && !adminSecret.isBlank()
+                                && adminSecret.equals(secret);
+                        return new org.springframework.security.authorization.AuthorizationDecision(
+                                isLocalhost || hasSecret);
                     }
                 )
                 // Public endpoints
