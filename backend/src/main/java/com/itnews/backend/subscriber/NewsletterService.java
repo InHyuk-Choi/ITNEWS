@@ -166,7 +166,7 @@ public class NewsletterService {
                 "<a href='" + unsubUrl + "' style='color:#999;'>수신거부</a></p>";
 
         var body = objectMapper.createObjectNode();
-        body.put("from", "IT뉴스 <onboarding@resend.dev>");
+        body.put("from", "IT뉴스 <noreply@itnewssub.xyz>");
         body.put("to", to);
         body.put("subject", "📰 이번 주 IT 뉴스 모아보기");
         body.put("html", fullHtml);
