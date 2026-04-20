@@ -38,6 +38,11 @@ public interface NewsRepository extends JpaRepository<NewsEntity, Long> {
      */
     @Modifying
     @Transactional
+    @Query("DELETE FROM NewsEntity n WHERE n.publishedAt < :cutoff")
+    int deleteOlderThan(@Param("cutoff") OffsetDateTime cutoff);
+
+    @Modifying
+    @Transactional
     @Query(value = """
             INSERT INTO news (title, url, source, summary, thumbnail, published_at, created_at)
             VALUES (:title, :url, :source, :summary, :thumbnail, :publishedAt, :createdAt)

@@ -1,6 +1,7 @@
 package com.itnews.backend.crawler;
 
 import com.itnews.backend.news.NewsEntity;
+import com.itnews.backend.news.NewsRepository;
 import com.itnews.backend.news.NewsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,6 +9,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -25,18 +28,33 @@ public class CrawlerScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(CrawlerScheduler.class);
 
+    private static final int RETENTION_DAYS = 30;
+
     private final List<Crawler> crawlers;
     private final NewsService newsService;
+    private final NewsRepository newsRepository;
     private final Executor crawlerExecutor;
 
     public CrawlerScheduler(
             List<Crawler> crawlers,
-            NewsService newsService
+            NewsService newsService,
+            NewsRepository newsRepository
     ) {
         this.crawlers = crawlers;
         this.newsService = newsService;
+        this.newsRepository = newsRepository;
         // Virtual threads (Java 21+) for lightweight concurrency
         this.crawlerExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    }
+
+    /** 매일 새벽 3시에 30일 이상 된 기사 삭제 */
+    @Scheduled(cron = "0 0 3 * * *")
+    public void deleteOldArticles() {
+        OffsetDateTime cutoff = OffsetDateTime.now(ZoneOffset.UTC).minusDays(RETENTION_DAYS);
+        int deleted = newsRepository.deleteOlderThan(cutoff);
+        if (deleted > 0) {
+            log.info("Deleted {} articles older than {} days", deleted, RETENTION_DAYS);
+        }
     }
 
     /** 매 시간 :30분에 요약 없는 기사 최대 10개 재시도 */
