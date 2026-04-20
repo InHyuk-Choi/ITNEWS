@@ -22,12 +22,12 @@ server:
 app:
   groq:
     api-key: ${GROQ_API_KEY:}
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
   resend:
     api-key: ${RESEND_API_KEY:}
   admin:
     secret: ${ADMIN_SECRET:}
-  gemini:
-    api-key: ${GEMINI_API_KEY:}
   naver:
     client-id: ${NAVER_CLIENT_ID:}
     client-secret: ${NAVER_CLIENT_SECRET:}

@@ -1,6 +1,6 @@
 package com.itnews.backend.news;
 
-import com.itnews.backend.ai.GeminiSummaryService;
+import com.itnews.backend.ai.GroqSummaryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
@@ -20,11 +20,11 @@ public class NewsService {
     private static final Logger log = LoggerFactory.getLogger(NewsService.class);
 
     private final NewsRepository newsRepository;
-    private final GeminiSummaryService geminiSummaryService;
+    private final GroqSummaryService groqSummaryService;
 
-    public NewsService(NewsRepository newsRepository, GeminiSummaryService geminiSummaryService) {
+    public NewsService(NewsRepository newsRepository, GroqSummaryService groqSummaryService) {
         this.newsRepository = newsRepository;
-        this.geminiSummaryService = geminiSummaryService;
+        this.groqSummaryService = groqSummaryService;
     }
 
     /**
@@ -38,7 +38,7 @@ public class NewsService {
     @Transactional
     public boolean saveIfNotExists(NewsEntity news) {
         try {
-            String summary = geminiSummaryService.summarize(news.getTitle(), news.getUrl());
+            String summary = groqSummaryService.summarize(news.getTitle(), news.getUrl());
 
             int inserted = newsRepository.upsertIgnoreDuplicate(
                     news.getTitle(),
@@ -82,7 +82,7 @@ public class NewsService {
         List<NewsEntity> unsummarized = newsRepository.findUnsummarized(
                 org.springframework.data.domain.PageRequest.of(0, limit));
         for (NewsEntity news : unsummarized) {
-            String summary = geminiSummaryService.summarize(news.getTitle(), news.getUrl());
+            String summary = groqSummaryService.summarize(news.getTitle(), news.getUrl());
             if (summary != null) {
                 news.setSummary(summary);
                 newsRepository.save(news);

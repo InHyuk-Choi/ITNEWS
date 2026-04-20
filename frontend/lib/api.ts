@@ -1,5 +1,5 @@
 // 서버사이드(Docker 내부)는 API_URL, 클라이언트사이드(브라우저)는 NEXT_PUBLIC_API_URL
-const API_URL = typeof window === 'undefined'
+export const API_URL = typeof window === 'undefined'
   ? (process.env.API_URL || 'http://localhost:8080')
   : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080')
 

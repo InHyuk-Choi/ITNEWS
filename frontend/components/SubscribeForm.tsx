@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+import { API_URL } from '@/lib/api'
 
 export function SubscribeForm() {
   const [email, setEmail] = useState('')

@@ -12,8 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.util.List;
 
-import java.time.OffsetDateTime;
-
 @Repository
 public interface NewsRepository extends JpaRepository<NewsEntity, Long> {
 
