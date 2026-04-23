@@ -3,7 +3,6 @@ import { fetchNews } from '@/lib/api'
 import { Header } from '@/components/Header'
 import { SourceFilter } from '@/components/SourceFilter'
 import { NewsGrid } from '@/components/NewsGrid'
-import { SubscribeForm } from '@/components/SubscribeForm'
 
 export const revalidate = 3600
 
@@ -40,7 +39,6 @@ export default async function Home({ searchParams }: PageProps) {
         >
           <NewsGrid initialData={initialData} source={source} />
         </Suspense>
-        <SubscribeForm />
       </main>
     </div>
   )
