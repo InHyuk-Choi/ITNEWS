@@ -9,6 +9,7 @@ import java.util.Optional;
 @Repository
 public interface SubscriberRepository extends JpaRepository<SubscriberEntity, Long> {
     boolean existsByEmail(String email);
+    Optional<SubscriberEntity> findByEmail(String email);
     Optional<SubscriberEntity> findByUnsubscribeToken(String token);
-    List<SubscriberEntity> findAllByActiveTrue();
+    List<SubscriberEntity> findAllByActiveTrueAndVerifiedTrue();
 }

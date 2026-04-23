@@ -22,6 +22,9 @@ public class SubscriberEntity {
     private boolean active = true;
 
     @Column(nullable = false)
+    private boolean verified = false;
+
+    @Column(nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
     protected SubscriberEntity() {}
@@ -36,5 +39,7 @@ public class SubscriberEntity {
     public String getUnsubscribeToken() { return unsubscribeToken; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+    public boolean isVerified() { return verified; }
+    public void setVerified(boolean verified) { this.verified = verified; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
 }

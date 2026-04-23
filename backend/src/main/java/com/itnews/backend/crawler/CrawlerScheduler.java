@@ -61,7 +61,10 @@ public class CrawlerScheduler {
     @Scheduled(cron = "0 30 * * * *")
     public void retrySummarization() {
         log.info("Retrying summarization for unsummarized articles");
-        newsService.retrySummarization(10);
+        int succeeded = newsService.retrySummarization(10);
+        if (succeeded > 0) {
+            newsService.evictNewsCache();
+        }
     }
 
     /**
@@ -94,6 +97,11 @@ public class CrawlerScheduler {
 
         // Wait for all crawlers to complete
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        // 배치 완료 후 한 번만 캐시 무효화 (개별 insert마다 무효화하던 것 대체)
+        if (totalSaved.get() > 0) {
+            newsService.evictNewsCache();
+        }
         log.info("Crawl complete. Total new articles saved: {}", totalSaved.get());
     }
 }

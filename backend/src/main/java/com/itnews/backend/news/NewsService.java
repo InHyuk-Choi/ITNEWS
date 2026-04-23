@@ -28,13 +28,13 @@ public class NewsService {
     }
 
     /**
-     * Saves the given news entity if the URL has not been seen before.
-     * Uses ON CONFLICT DO NOTHING at the DB level to prevent race conditions.
-     * After a successful insert, triggers async Gemini summarization.
-     *
-     * @return true if a new record was inserted, false if it was a duplicate.
+     * 크롤링 배치 완료 시 한 번만 호출 (개별 insert마다 캐시를 지우지 않음).
      */
     @CacheEvict(value = "news", allEntries = true)
+    public void evictNewsCache() {
+        log.debug("News cache evicted");
+    }
+
     @Transactional
     public boolean saveIfNotExists(NewsEntity news) {
         try {
@@ -76,25 +76,23 @@ public class NewsService {
     }
 
     /** 요약 없는 기사 최대 limit개 재시도 */
-    @CacheEvict(value = "news", allEntries = true)
     @Transactional
-    public void retrySummarization(int limit) {
+    public int retrySummarization(int limit) {
         List<NewsEntity> unsummarized = newsRepository.findUnsummarized(
-                org.springframework.data.domain.PageRequest.of(0, limit));
+                PageRequest.of(0, limit));
+        int succeeded = 0;
         for (NewsEntity news : unsummarized) {
             String summary = groqSummaryService.summarize(news.getTitle(), news.getUrl());
             if (summary != null) {
                 news.setSummary(summary);
                 newsRepository.save(news);
+                succeeded++;
                 log.info("Retry summary OK: {}", news.getTitle());
             }
         }
+        return succeeded;
     }
 
-    /**
-     * Returns a paginated list of news, optionally filtered by source.
-     * Results are cached under the "news" cache with a 30-minute TTL.
-     */
     @Cacheable(value = "news", key = "#source + '_' + #page + '_' + #size")
     @Transactional(readOnly = true)
     public NewsPageResponse getNews(String source, int page, int size) {

@@ -76,7 +76,7 @@ public class SecurityConfig {
                     }
                 )
                 // Public endpoints
-                .requestMatchers(HttpMethod.GET, "/api/news", "/api/news/search", "/api/unsubscribe").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/news", "/api/news/search", "/api/unsubscribe", "/api/subscribe/verify").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/subscribe").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 // Everything else requires authentication

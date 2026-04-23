@@ -127,9 +127,9 @@ public class GroqSummaryService {
             contentsArr.add(contentItem);
             contents.set("contents", contentsArr);
 
-            String url = GEMINI_URL + "?key=" + geminiApiKey;
             Request request = new Request.Builder()
-                    .url(url)
+                    .url(GEMINI_URL)
+                    .header("x-goog-api-key", geminiApiKey)
                     .post(RequestBody.create(objectMapper.writeValueAsString(contents), JSON))
                     .build();
 

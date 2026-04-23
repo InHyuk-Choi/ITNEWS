@@ -16,6 +16,10 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -26,6 +30,7 @@ public class NewsletterService {
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     private static final DateTimeFormatter DATE_FMT =
             DateTimeFormatter.ofPattern("M월 d일").withZone(java.time.ZoneId.of("Asia/Seoul"));
+    private static final String FROM_ADDRESS = "IT뉴스 <noreply@itnewssub.xyz>";
 
     private final SubscriberRepository subscriberRepository;
     private final NewsRepository newsRepository;
@@ -34,6 +39,9 @@ public class NewsletterService {
     private final String resendApiKey;
     private final String groqApiKey;
     private final String frontendUrl;
+    private final Executor emailExecutor;
+    // Resend 무료 2 req/s 대비 여유있게 3 동시발송으로 제한
+    private final Semaphore sendPermits = new Semaphore(3);
 
     public NewsletterService(
             SubscriberRepository subscriberRepository,
@@ -52,6 +60,7 @@ public class NewsletterService {
                 .connectTimeout(10, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
                 .build();
+        this.emailExecutor = Executors.newVirtualThreadPerTaskExecutor();
     }
 
     /** 매주 월요일 오전 9시 KST (0시 UTC) */
@@ -62,13 +71,12 @@ public class NewsletterService {
             return;
         }
 
-        List<SubscriberEntity> subscribers = subscriberRepository.findAllByActiveTrue();
+        List<SubscriberEntity> subscribers = subscriberRepository.findAllByActiveTrueAndVerifiedTrue();
         if (subscribers.isEmpty()) {
-            log.info("No active subscribers, skipping newsletter");
+            log.info("No verified active subscribers, skipping newsletter");
             return;
         }
 
-        // 지난 7일 기사 50개 가져와서 Groq이 중요도 선별
         List<NewsEntity> candidates = newsRepository.findTop10ForNewsletter(
                 OffsetDateTime.now(ZoneOffset.UTC).minusDays(7),
                 PageRequest.of(0, 50)
@@ -81,27 +89,67 @@ public class NewsletterService {
 
         List<NewsEntity> articles = selectImportantArticles(candidates);
         String html = buildHtml(articles);
-        int sent = 0;
 
-        for (SubscriberEntity subscriber : subscribers) {
-            try {
-                sendEmail(subscriber.getEmail(), html, subscriber.getUnsubscribeToken());
-                sent++;
-            } catch (Exception e) {
-                log.warn("Failed to send newsletter to {}: {}", subscriber.getEmail(), e.getMessage());
-            }
-        }
-        log.info("Weekly newsletter sent to {}/{} subscribers", sent, subscribers.size());
+        long start = System.currentTimeMillis();
+        List<CompletableFuture<Boolean>> tasks = subscribers.stream()
+                .map(sub -> CompletableFuture.supplyAsync(() -> sendWithRateLimit(sub, html), emailExecutor))
+                .toList();
+
+        long sent = tasks.stream().map(CompletableFuture::join).filter(b -> b).count();
+        long elapsed = (System.currentTimeMillis() - start) / 1000;
+        log.info("Weekly newsletter sent to {}/{} subscribers in {}s", sent, subscribers.size(), elapsed);
     }
 
-    /** Groq에게 기사 목록 주고 중요한 10개 ID 선택 */
+    private boolean sendWithRateLimit(SubscriberEntity sub, String html) {
+        try {
+            sendPermits.acquire();
+            try {
+                String unsubUrl = frontendUrl + "/unsubscribe?token=" + sub.getUnsubscribeToken();
+                String body = html + "<p style='color:#999;font-size:12px;margin-top:32px;'>" +
+                        "<a href='" + unsubUrl + "' style='color:#999;'>수신거부</a></p>";
+                sendEmail(sub.getEmail(), "📰 이번 주 IT 뉴스 모아보기", body);
+                return true;
+            } finally {
+                sendPermits.release();
+            }
+        } catch (Exception e) {
+            log.warn("Failed to send newsletter to {}: {}", sub.getEmail(), e.getMessage());
+            return false;
+        }
+    }
+
+    /** 구독 인증 이메일 발송 */
+    public void sendVerificationEmail(String to, String token) {
+        if (resendApiKey == null || resendApiKey.isBlank()) {
+            log.warn("RESEND_API_KEY not set, skipping verification email to {}", to);
+            return;
+        }
+        String verifyUrl = frontendUrl + "/verify?token=" + token;
+        String html =
+                "<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;'>" +
+                "<h1 style='font-size:20px;font-weight:bold;margin-bottom:16px;'>이메일 인증</h1>" +
+                "<p style='color:#555;font-size:14px;line-height:1.6;margin-bottom:24px;'>" +
+                "IT뉴스 주간 뉴스레터 구독을 확인하려면 아래 버튼을 눌러주세요.</p>" +
+                "<a href='" + verifyUrl + "' style='display:inline-block;padding:12px 24px;" +
+                "background:#111;color:#fff;text-decoration:none;border-radius:6px;font-size:14px;" +
+                "font-weight:500;'>이메일 인증하기</a>" +
+                "<p style='color:#999;font-size:12px;margin-top:32px;'>" +
+                "본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다.</p>" +
+                "</div>";
+
+        try {
+            sendEmail(to, "IT뉴스 구독 인증", html);
+        } catch (Exception e) {
+            log.warn("Failed to send verification email to {}: {}", to, e.getMessage());
+        }
+    }
+
     private List<NewsEntity> selectImportantArticles(List<NewsEntity> candidates) {
         if (groqApiKey == null || groqApiKey.isBlank() || candidates.size() <= 10) {
             return candidates.stream().limit(10).collect(Collectors.toList());
         }
 
         try {
-            // 번호:제목 목록 생성
             StringBuilder prompt = new StringBuilder(
                 "다음은 이번 주 IT 뉴스 기사 목록이야. 개발자와 IT 종사자에게 가장 중요하고 임팩트 있는 기사 10개의 번호를 골라줘.\n" +
                 "JSON 배열 형식으로만 답해줘. 예: [1, 5, 12, ...]\n\n"
@@ -117,7 +165,6 @@ public class NewsletterService {
             String response = callGroq(prompt.toString());
             if (response == null) return candidates.stream().limit(10).collect(Collectors.toList());
 
-            // JSON 배열 파싱
             String json = response.replaceAll("(?s).*?(\\[.*?]).*", "$1");
             JsonNode arr = objectMapper.readTree(json);
             List<NewsEntity> selected = new ArrayList<>();
@@ -160,16 +207,12 @@ public class NewsletterService {
         }
     }
 
-    private void sendEmail(String to, String html, String unsubscribeToken) throws Exception {
-        String unsubUrl = frontendUrl + "/unsubscribe?token=" + unsubscribeToken;
-        String fullHtml = html + "<p style='color:#999;font-size:12px;margin-top:32px;'>" +
-                "<a href='" + unsubUrl + "' style='color:#999;'>수신거부</a></p>";
-
+    private void sendEmail(String to, String subject, String html) throws Exception {
         var body = objectMapper.createObjectNode();
-        body.put("from", "IT뉴스 <noreply@itnewssub.xyz>");
+        body.put("from", FROM_ADDRESS);
         body.put("to", to);
-        body.put("subject", "📰 이번 주 IT 뉴스 모아보기");
-        body.put("html", fullHtml);
+        body.put("subject", subject);
+        body.put("html", html);
 
         Request request = new Request.Builder()
                 .url("https://api.resend.com/emails")
