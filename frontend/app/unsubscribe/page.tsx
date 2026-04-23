@@ -28,6 +28,7 @@ function UnsubscribeContent() {
         setStatus('error')
         setMessage('오류가 발생했습니다.')
       })
+      
   }, [token])
 
   return (
