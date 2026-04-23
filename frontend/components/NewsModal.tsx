@@ -104,14 +104,14 @@ export function NewsModal({ item, onClose }: NewsModalProps) {
                 {/* Summary */}
                 {item.summary ? (
                   <div className="mb-6 border-l-2 border-gray-200 dark:border-[#2a2a2a] pl-4">
-                    <p className="text-xs font-mono text-gray-400 dark:text-gray-500 mb-2">// AI 요약</p>
+                    <p className="text-xs font-mono text-gray-400 dark:text-gray-500 mb-2">{"// AI 요약"}</p>
                     <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
                       {item.summary}
                     </p>
                   </div>
                 ) : (
                   <p className="font-mono text-xs text-gray-400 dark:text-gray-600 mb-6">
-                    // generating summary...
+                    {"// generating summary..."}
                   </p>
                 )}
 

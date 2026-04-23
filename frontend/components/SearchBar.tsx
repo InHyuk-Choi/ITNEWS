@@ -23,7 +23,7 @@ export function SearchBar() {
       router.replace(`${pathname}?${params.toString()}`)
     }, 300)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [value])
+  }, [value, pathname, router, searchParams])
 
   return (
     <div className="relative w-full max-w-sm">
