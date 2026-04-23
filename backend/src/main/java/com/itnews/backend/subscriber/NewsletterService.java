@@ -104,7 +104,7 @@ public class NewsletterService {
         try {
             sendPermits.acquire();
             try {
-                String unsubUrl = frontendUrl + "/unsubscribe?token=" + sub.getUnsubscribeToken();
+                String unsubUrl = escapeAttr(frontendUrl + "/unsubscribe?token=" + sub.getUnsubscribeToken());
                 String body = html + "<p style='color:#999;font-size:12px;margin-top:32px;'>" +
                         "<a href='" + unsubUrl + "' style='color:#999;'>수신거부</a></p>";
                 sendEmail(sub.getEmail(), "📰 이번 주 IT 뉴스 모아보기", body);
@@ -124,7 +124,7 @@ public class NewsletterService {
             log.warn("RESEND_API_KEY not set, skipping verification email to {}", to);
             return;
         }
-        String verifyUrl = frontendUrl + "/verify?token=" + token;
+        String verifyUrl = escapeAttr(frontendUrl + "/verify?token=" + token);
         String html =
                 "<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;'>" +
                 "<h1 style='font-size:20px;font-weight:bold;margin-bottom:16px;'>이메일 인증</h1>" +
@@ -233,23 +233,43 @@ public class NewsletterService {
         sb.append("<div style='font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;'>")
           .append("<h1 style='font-size:22px;font-weight:bold;margin-bottom:4px;'>📰 이번 주 IT 뉴스</h1>")
           .append("<p style='color:#888;font-size:14px;margin-bottom:32px;'>")
-          .append(date).append(" 기준 주요 뉴스</p>");
+          .append(escapeHtml(date)).append(" 기준 주요 뉴스</p>");
 
         for (NewsEntity a : articles) {
             sb.append("<div style='margin-bottom:28px;padding-bottom:28px;border-bottom:1px solid #eee;'>")
               .append("<p style='color:#888;font-size:12px;margin:0 0 6px;'>")
-              .append(a.getSource().toUpperCase()).append("</p>")
-              .append("<a href='").append(a.getUrl())
+              .append(escapeHtml(a.getSource().toUpperCase())).append("</p>")
+              .append("<a href='").append(escapeAttr(a.getUrl()))
               .append("' style='font-size:16px;font-weight:bold;color:#111;text-decoration:none;'>")
-              .append(a.getTitle()).append("</a>");
+              .append(escapeHtml(a.getTitle())).append("</a>");
             if (a.getSummary() != null) {
                 sb.append("<p style='color:#555;font-size:14px;margin:8px 0 0;line-height:1.6;'>")
-                  .append(a.getSummary()).append("</p>");
+                  .append(escapeHtml(a.getSummary())).append("</p>");
             }
             sb.append("</div>");
         }
 
         sb.append("</div>");
         return sb.toString();
+    }
+
+    /** HTML 본문에 사용자/외부 콘텐츠 삽입 시 XSS 방어용 이스케이프 */
+    private static String escapeHtml(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+
+    /** 속성값(href 등)에 삽입 시 최소 이스케이프 */
+    private static String escapeAttr(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;");
     }
 }
