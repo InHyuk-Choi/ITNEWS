@@ -151,8 +151,8 @@ export function NewsGrid({ initialData }: NewsGridProps) {
             )
           }
 
-          {/* News grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* News list */}
+          <div className="border border-gray-200 dark:border-[#1f1f1f] rounded-lg overflow-hidden divide-y divide-gray-100 dark:divide-[#1a1a1a]">
             {allItems.map((item, index) => (
               <NewsCard
                 key={`${item.id}-${item.source}`}
@@ -165,7 +165,9 @@ export function NewsGrid({ initialData }: NewsGridProps) {
             {/* Loading skeletons */}
             {(isCurrentlyLoading || isValidating) &&
               Array.from({ length: 6 }).map((_, i) => (
-                <SkeletonCard key={`skeleton-${i}`} />
+                <div key={`skeleton-${i}`} className="divide-y divide-gray-100 dark:divide-[#1a1a1a]">
+                  <SkeletonCard />
+                </div>
               ))}
           </div>
         </motion.div>

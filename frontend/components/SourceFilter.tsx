@@ -19,33 +19,27 @@ export function SourceFilter() {
   }
 
   return (
-    <div className="relative">
-      <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-        {SOURCE_FILTERS.map((filter) => {
-          const isActive = currentSource === filter.key
-          return (
-            <button
-              key={filter.key}
-              onClick={() => handleSourceChange(filter.key)}
-              className={`
-                flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium
-                transition-all duration-200 ease-in-out
-                focus:outline-none focus:ring-2 focus:ring-orange-500/50
-                ${
-                  isActive
-                    ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-[#1a1a1a] dark:text-gray-400 dark:hover:bg-[#2a2a2a] dark:border dark:border-[#2a2a2a]'
-                }
-              `}
-            >
-              {filter.label}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Fade gradient on right edge */}
-      <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-[#0a0a0a] to-transparent pointer-events-none" />
+    <div className="flex gap-0 overflow-x-auto scrollbar-hide border-b border-gray-200 dark:border-[#1f1f1f]">
+      {SOURCE_FILTERS.map((filter) => {
+        const isActive = currentSource === filter.key
+        return (
+          <button
+            key={filter.key}
+            onClick={() => handleSourceChange(filter.key)}
+            className={`
+              flex-shrink-0 px-3 py-2 -mb-px text-xs font-mono
+              border-b-2 transition-colors duration-100
+              focus:outline-none
+              ${isActive
+                ? 'border-gray-900 dark:border-white text-gray-900 dark:text-white'
+                : 'border-transparent text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              }
+            `}
+          >
+            {filter.label}
+          </button>
+        )
+      })}
     </div>
   )
 }
